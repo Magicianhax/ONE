@@ -2,9 +2,20 @@ import { WSClient } from "../ws.js";
 
 // ── Markdown-to-DOM renderer (safe, no innerHTML) ──
 
+function sanitizeAgentText(raw: string): string {
+  // Convert <br> / <br/> to newlines, strip other HTML tags
+  return raw
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"');
+}
+
 function renderMarkdown(text: string): DocumentFragment {
   const frag = document.createDocumentFragment();
-  const lines = text.split("\n");
+  const lines = sanitizeAgentText(text).split("\n");
   let i = 0;
 
   while (i < lines.length) {

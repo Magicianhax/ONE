@@ -43,10 +43,14 @@ Your Celo wallet (0xc6D7...C7):
 
 Supports **any token on Celo** — symbol (`CELO`, `USDC`) or contract address (`0x...`).
 
+**IMPORTANT:** When the user says "swap X to 0x1234..." — the `0x` address is a **token contract address**, NOT a recipient wallet. Use it as `--to 0x1234...` in the quote/swap scripts. The scripts resolve the token metadata on-chain automatically.
+
 ### Step 1 — Quote (ALWAYS first)
 
 ```bash
 cd ~/one && npx tsx skills/one/scripts/quote.ts --from <TOKEN|ADDRESS> --to <TOKEN|ADDRESS> --amount <AMOUNT>
+# Example with contract address:
+# cd ~/one && npx tsx skills/one/scripts/quote.ts --from USDC --to 0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A --amount 5
 ```
 
 ### Step 2 — Execute (ONLY after user confirms)

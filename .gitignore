@@ -34,6 +34,16 @@ scripts/get-agent-id.ts
 detailes.txt
 ideas.txt
 rough.md
+docs/DEMO-SCRIPT.md
+
+# Video assets (too large for git)
+video/out/
+video/public/clips/
+video/public/screenshots/
+video/public/logo.png
+video/node_modules/
+video/test-record.ts
+video/package-lock.json
 
 # Tasks (claude internal)
 tasks/
