@@ -4,7 +4,7 @@
 
 Personal DeFi agent on Celo. Talk to it via Telegram or a 3D web UI — it swaps tokens, lends on AAVE, tracks arbitrage, saves toward goals, and monitors your portfolio. Works with any ERC-20 on Celo, not just a fixed token list.
 
-Built as an [OpenClaw](https://openclaw.ai) skill. Registered on-chain via [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004).
+Built as an [OpenClaw](https://openclaw.ai) skill. Registered on-chain via [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004) — [view on AgentScan](https://agentscan.info/agents/135a8c8f-6f37-476d-9d26-7cc9c8320322).
 
 ## Screenshots
 
