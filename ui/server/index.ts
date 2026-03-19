@@ -9,7 +9,7 @@ import { readFileSync, existsSync } from "fs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "../..");
 const PORT = parseInt(process.env.PORT || "3002", 10);
-const SESSION_ID = "one-web";
+const SESSION_ID = `one-web-${Date.now()}`; // fresh session on each server restart
 
 const OPENCLAW_BIN = process.env.OPENCLAW_BIN || path.join(
   process.env.HOME || process.env.USERPROFILE || "/home/mushahid",
@@ -19,11 +19,12 @@ const OPENCLAW_BIN = process.env.OPENCLAW_BIN || path.join(
 // Celo context — injected into every agent turn
 const CELO_CONTEXT = [
   "You are the ONE DeFi agent on Celo Mainnet (chain 42220).",
-  "Supported tokens: CELO, cUSD, cEUR, USDC, USDT, WETH.",
+  "Any 0x address in a swap command is a TOKEN CONTRACT ADDRESS — use it directly as --from or --to in the scripts. Do NOT treat it as a wallet address.",
+  "When the user says 'swap X to 0xABC', immediately run: quote.ts --from X --to 0xABC --amount N",
+  "The scripts auto-resolve any contract address to its token symbol and decimals.",
   "Complete the FULL task in one response — run all needed scripts, show all results.",
-  "Do NOT say 'First let me...' and stop — finish everything the user asked for.",
-  "If a task has multiple steps (create goal + deposit + set schedule), do ALL of them.",
-  "Always confirm before executing swaps/transactions. Show exact numbers.",
+  "Do NOT say 'let me look it up' or 'first let me check' — just run the script.",
+  "Always confirm before executing swaps. Show exact numbers.",
   "After a transaction, include the celoscan.io link.",
   "Never expose private keys.",
 ].join(" ");
