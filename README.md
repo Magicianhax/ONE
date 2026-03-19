@@ -384,8 +384,3 @@ Key areas that could use help:
 
 MIT
 
----
-
-<p align="center">
-  Built for <strong>Celo Hackathon V2</strong> — Build Agents for the Real World
-</p>
