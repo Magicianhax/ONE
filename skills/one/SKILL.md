@@ -213,6 +213,44 @@ When triggered, analyze the situation and take the appropriate action based on t
 
 ---
 
+## 9. Market Data (CoinGecko CLI)
+
+**Triggers:** price, market, trending, top coins, gainers, losers, market cap, what's hot
+
+The `cg` CLI provides real-time market data. Always use `-o json` for structured output.
+
+### Current price
+```bash
+cg price --symbols celo,btc,eth -o json
+cg price --ids celo,usd-coin,tether -o json
+```
+
+### Market rankings
+```bash
+cg markets -o json
+cg markets --category layer-2 -o json
+```
+
+### Search for any token
+```bash
+cg search <query> -o json
+```
+
+### Trending tokens
+```bash
+cg trending -o json
+```
+
+### Historical data
+```bash
+cg history celo --days 30 -o json
+cg history celo --days 7 --ohlc -o json
+```
+
+Use this for: price checks before swaps, market context, finding token IDs, answering "what's the price of X?", portfolio valuation, market analysis.
+
+---
+
 ## Safety Rules
 
 1. **ALWAYS confirm before any transaction.** Show amounts, venue, fees, slippage first.
