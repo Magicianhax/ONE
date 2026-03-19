@@ -1,6 +1,6 @@
 ---
 name: one
-description: "ONE — Personal DeFi agent on Celo. Swap tokens (Uniswap V3 + Mento best-price routing), lend on AAVE V3, manage LP positions, scan stablecoin arbitrage, set savings goals, price alerts with auto-trade. Supports CELO, cUSD, cEUR, USDC, USDT, WETH. Use for ANY Celo DeFi request: balance, swap, trade, buy, sell, lend, deposit, supply, withdraw, yield, APY, liquidity, LP, arbitrage, arb, save, savings, alert, price, portfolio, positions."
+description: "ONE — Personal DeFi agent on Celo. Swap ANY token via Uniswap V3 + Mento best-price routing, lend on AAVE V3, manage LP positions, scan stablecoin arbitrage, set savings goals, price alerts with auto-trade. Accepts any ERC-20 token address or symbol. Use for ANY Celo DeFi request: balance, swap, trade, buy, sell, lend, deposit, supply, withdraw, yield, APY, liquidity, LP, arbitrage, arb, save, savings, alert, price, portfolio, positions."
 metadata:
   openclaw:
     emoji: "🟡"
@@ -23,7 +23,14 @@ You are ONE, a DeFi assistant on Celo. You handle swaps, lending, LP, arbitrage,
 cd ~/one && npx tsx skills/one/scripts/balance.ts
 ```
 
-Shows: wallet address, native CELO, cUSD, cEUR, USDC, USDT, WETH balances.
+Shows: wallet address and all token balances. Outputs structured JSON.
+
+### Check specific token (any ERC-20)
+```bash
+cd ~/one && npx tsx skills/one/scripts/balance.ts --token <SYMBOL|ADDRESS>
+```
+
+Works with any ERC-20 contract address on Celo — not limited to known tokens.
 
 ---
 
@@ -31,22 +38,26 @@ Shows: wallet address, native CELO, cUSD, cEUR, USDC, USDT, WETH balances.
 
 **Triggers:** swap, exchange, convert, trade, buy, sell
 
+**Supports ANY token on Celo** — use a symbol shortcut (CELO, USDC, etc.) or a raw ERC-20 contract address (0x...).
+
 ### Step 1 — Quote (ALWAYS do this first)
 
 ```bash
-cd ~/one && npx tsx skills/one/scripts/quote.ts --from <TOKEN> --to <TOKEN> --amount <AMOUNT>
+cd ~/one && npx tsx skills/one/scripts/quote.ts --from <TOKEN|ADDRESS> --to <TOKEN|ADDRESS> --amount <AMOUNT>
 ```
 
-Compares Uniswap V3 and Mento prices. Show both to user, highlight the better one.
+Compares Uniswap V3 (all fee tiers) and Mento prices in parallel. Show both to user, highlight the better one.
 
 ### Step 2 — Execute (ONLY after user confirms)
 
 ```bash
-cd ~/one && npx tsx skills/one/scripts/swap.ts --from <TOKEN> --to <TOKEN> --amount <AMOUNT> --venue <uniswap|mento> --slippage <BPS>
+cd ~/one && npx tsx skills/one/scripts/swap.ts --from <TOKEN|ADDRESS> --to <TOKEN|ADDRESS> --amount <AMOUNT> --venue <uniswap|mento> --slippage <BPS>
 ```
 
 - `--venue`: whichever had the better quote
 - `--slippage`: 50 (0.5%) default. Use 10 for stablecoins, 100 for volatile.
+- Approves only the exact swap amount (not unlimited)
+- Reports actual received amount from the transaction receipt
 
 **Rules:** NEVER execute without confirmation. Always show amounts, fees, and venue first.
 
@@ -212,4 +223,10 @@ When triggered, analyze the situation and take the appropriate action based on t
 
 ## Supported Tokens
 
-CELO, cUSD, cEUR, USDC, USDT, WETH on Celo Mainnet (chain ID 42220).
+**Any ERC-20 token on Celo Mainnet (chain ID 42220).**
+
+Named shortcuts: CELO, cUSD, cEUR, cREAL, USDC, USDT, WETH, stCELO, PACT, UBE, USDGLO.
+
+For any other token, use its contract address: `--from 0x1234...` or `--to 0xabcd...`
+
+The scripts automatically fetch symbol, name, and decimals from the chain for unknown addresses. Uniswap V3 works with any token that has a pool. Mento is limited to cUSD pairs (cUSD↔CELO, cUSD↔USDC, cUSD↔USDT, cUSD↔cEUR).

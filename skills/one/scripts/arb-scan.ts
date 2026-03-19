@@ -1,8 +1,8 @@
 /**
- * ONE Arb — Stablecoin Arbitrage Scanner
- * Compare stablecoin prices between Uniswap V3 and Mento.
+ * ONE Arb — Stablecoin Arbitrage Scanner on Celo
+ * Compares prices between Uniswap V3 and Mento across all fee tiers (parallel).
  *
- * Usage: npx tsx scan.ts [--threshold 0.3] [--execute]
+ * Usage: npx tsx arb-scan.ts [--threshold 0.3]
  */
 
 import { publicClient } from "../../../lib/client.js";
@@ -10,13 +10,12 @@ import { TOKENS } from "../../../lib/tokens.js";
 import {
   UNISWAP,
   MENTO,
+  MENTO_PROVIDER,
   QUOTER_V2_ABI,
   MENTO_BROKER_ABI,
 } from "../../../lib/contracts.js";
 import { formatAmount, parseAmount, parseArgs, output } from "../../../lib/utils.js";
 import { type Address } from "viem";
-
-const MENTO_PROVIDER = "0x22d9db95E6Ae61c104A7B6F6C78D7993B94ec901" as Address;
 
 const PAIRS: { name: string; from: string; to: string; mentoId: `0x${string}` }[] = [
   {
@@ -39,16 +38,26 @@ const PAIRS: { name: string; from: string; to: string; mentoId: `0x${string}` }[
   },
 ];
 
-const FEE_TIERS = [100, 500, 3000] as const;
+const FEE_TIERS = [100, 500, 3000, 10000] as const;
 
-async function getUniswapPrice(
+interface ScanResult {
+  pair: string;
+  uniswapOut: string;
+  mentoOut: string;
+  spreadPct: string;
+  profitable: boolean;
+  direction: string;
+}
+
+/** Get BEST Uniswap price across all fee tiers (parallel) */
+async function getBestUniswapPrice(
   tokenIn: Address,
   tokenOut: Address,
   amountIn: bigint,
   decimalsOut: number
 ): Promise<number | null> {
-  for (const fee of FEE_TIERS) {
-    try {
+  const results = await Promise.allSettled(
+    FEE_TIERS.map(async (fee) => {
       const result = await publicClient.simulateContract({
         address: UNISWAP.quoterV2,
         abi: QUOTER_V2_ABI,
@@ -57,11 +66,16 @@ async function getUniswapPrice(
       });
       const [amountOut] = result.result as readonly [bigint, bigint, number, bigint];
       return parseFloat(formatAmount(amountOut, decimalsOut));
-    } catch {
-      continue;
+    })
+  );
+
+  let best: number | null = null;
+  for (const r of results) {
+    if (r.status === "fulfilled" && (best === null || r.value > best)) {
+      best = r.value;
     }
   }
-  return null;
+  return best;
 }
 
 async function getMentoPrice(
@@ -84,56 +98,51 @@ async function getMentoPrice(
   }
 }
 
+async function scanPair(pair: typeof PAIRS[number], thresholdPct: number): Promise<ScanResult | { pair: string; error: string }> {
+  const fromToken = TOKENS[pair.from];
+  const toToken = TOKENS[pair.to];
+  const testAmount = parseAmount("100", fromToken.decimals);
+
+  const [uniPrice, mentoPrice] = await Promise.all([
+    getBestUniswapPrice(fromToken.address, toToken.address, testAmount, toToken.decimals),
+    getMentoPrice(pair.mentoId, fromToken.address, toToken.address, testAmount, toToken.decimals),
+  ]);
+
+  if (uniPrice === null || mentoPrice === null) {
+    return { pair: pair.name, error: `Uni: ${uniPrice ?? "N/A"}, Mento: ${mentoPrice ?? "N/A"}` };
+  }
+
+  const spread = ((Math.abs(uniPrice - mentoPrice) / Math.min(uniPrice, mentoPrice)) * 100);
+  const direction = uniPrice > mentoPrice
+    ? `Buy on Mento (${mentoPrice.toFixed(4)}), sell on Uniswap (${uniPrice.toFixed(4)})`
+    : `Buy on Uniswap (${uniPrice.toFixed(4)}), sell on Mento (${mentoPrice.toFixed(4)})`;
+
+  return {
+    pair: pair.name,
+    uniswapOut: uniPrice.toFixed(6),
+    mentoOut: mentoPrice.toFixed(6),
+    spreadPct: spread.toFixed(4),
+    profitable: spread > thresholdPct,
+    direction,
+  };
+}
+
 async function main() {
   const args = parseArgs(process.argv);
   const thresholdPct = parseFloat(args.threshold || "0.3");
 
-  const opportunities: any[] = [];
-  const scans: any[] = [];
+  // Scan all pairs in parallel
+  const results = await Promise.all(PAIRS.map((p) => scanPair(p, thresholdPct)));
 
-  for (const pair of PAIRS) {
-    const fromToken = TOKENS[pair.from];
-    const toToken = TOKENS[pair.to];
-
-    // Use 100 units as test amount for better precision
-    const testAmount = parseAmount("100", fromToken.decimals);
-
-    const [uniPrice, mentoPrice] = await Promise.all([
-      getUniswapPrice(fromToken.address, toToken.address, testAmount, toToken.decimals),
-      getMentoPrice(pair.mentoId, fromToken.address, toToken.address, testAmount, toToken.decimals),
-    ]);
-
-    if (uniPrice === null || mentoPrice === null) {
-      scans.push({ pair: pair.name, uniswap: uniPrice, mento: mentoPrice, spread: "N/A" });
-      continue;
-    }
-
-    // Spread as percentage
-    const spread = ((Math.abs(uniPrice - mentoPrice) / Math.min(uniPrice, mentoPrice)) * 100);
-    const direction = uniPrice > mentoPrice
-      ? `Buy on Mento (${mentoPrice.toFixed(4)}), sell on Uniswap (${uniPrice.toFixed(4)})`
-      : `Buy on Uniswap (${uniPrice.toFixed(4)}), sell on Mento (${mentoPrice.toFixed(4)})`;
-
-    const scan = {
-      pair: pair.name,
-      uniswapOut: uniPrice.toFixed(6),
-      mentoOut: mentoPrice.toFixed(6),
-      spreadPct: spread.toFixed(4),
-      profitable: spread > thresholdPct,
-      direction,
-    };
-    scans.push(scan);
-
-    if (spread > thresholdPct) {
-      opportunities.push(scan);
-    }
-  }
+  const scans = results.filter((r): r is ScanResult => "spreadPct" in r);
+  const errors = results.filter((r) => "error" in r);
+  const opportunities = scans.filter((s) => s.profitable);
 
   output({
     timestamp: new Date().toISOString(),
     threshold: `${thresholdPct}%`,
     testAmount: "100 units",
-    scans,
+    scans: [...scans, ...errors],
     opportunities: opportunities.length > 0 ? opportunities : "No profitable opportunities above threshold",
   });
 }

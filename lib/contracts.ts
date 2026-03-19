@@ -14,6 +14,20 @@ export const MENTO = {
   biPoolManager: "0x22d9db95E6Ae61c104A7B6F6C78D7993B94ec901" as Address,
 } as const;
 
+export const MENTO_PROVIDER = MENTO.biPoolManager;
+
+// Mento exchange IDs — all pairs through cUSD
+export const MENTO_EXCHANGES: Record<string, `0x${string}`> = {
+  "cUSD/CELO": "0x3135b662c38265d0655177091f1b647b4fef511103d06c016efdf18b46930d2c",
+  "CELO/cUSD": "0x3135b662c38265d0655177091f1b647b4fef511103d06c016efdf18b46930d2c",
+  "cUSD/USDC": "0xacc988382b66ee5456086643dcfd9a5ca43dd8f428f6ef22503d8b8013bcffd7",
+  "USDC/cUSD": "0xacc988382b66ee5456086643dcfd9a5ca43dd8f428f6ef22503d8b8013bcffd7",
+  "cUSD/USDT": "0x773bcec109cee923b5e04706044fd9d6a5121b1a6a4c059c36fdbe5b845d4e9b",
+  "USDT/cUSD": "0x773bcec109cee923b5e04706044fd9d6a5121b1a6a4c059c36fdbe5b845d4e9b",
+  "cUSD/cEUR": "0x746455363e8f55d04e0a2cc040d1b348a6c031b336ba6af6ae91515c194929c8",
+  "cEUR/cUSD": "0x746455363e8f55d04e0a2cc040d1b348a6c031b336ba6af6ae91515c194929c8",
+};
+
 // ── AAVE V3 on Celo (from bgd-labs/aave-address-book) ────────────────
 export const AAVE = {
   poolAddressesProvider: "0x9F7Cf9417D5251C59fE94fB9147feEe1aAd9Cea5" as Address,

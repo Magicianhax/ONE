@@ -1,17 +1,19 @@
 /**
- * ONE Swap — Execute Script
- * Executes a token swap on the specified venue.
+ * ONE Swap — Execute a token swap on Celo
  *
- * Usage: npx tsx execute.ts --from cUSD --to CELO --amount 10 --venue uniswap --slippage 50
+ * Usage: npx tsx swap.ts --from <TOKEN|ADDRESS> --to <TOKEN|ADDRESS> --amount <AMOUNT> --venue <uniswap|mento> [--slippage <BPS>]
  *   venue: "uniswap" or "mento"
- *   slippage: basis points (50 = 0.5%)
+ *   slippage: basis points (50 = 0.5%, default)
+ *   TOKEN can be a symbol (CELO, USDC, etc.) or any ERC-20 address on Celo
  */
 
-import { publicClient, walletClient, account, celo } from "../../../lib/client.js";
-import { resolveToken, TOKENS } from "../../../lib/tokens.js";
+import { publicClient, walletClient, account } from "../../../lib/client.js";
+import { resolveTokenDynamic } from "../../../lib/tokens.js";
 import {
   UNISWAP,
   MENTO,
+  MENTO_PROVIDER,
+  MENTO_EXCHANGES,
   SWAP_ROUTER_ABI,
   MENTO_BROKER_ABI,
   QUOTER_V2_ABI,
@@ -25,22 +27,12 @@ import {
   output,
   fail,
 } from "../../../lib/utils.js";
-import { type Address } from "viem";
-
-const MENTO_PROVIDER = "0x22d9db95E6Ae61c104A7B6F6C78D7993B94ec901" as Address;
-
-const MENTO_EXCHANGES: Record<string, `0x${string}`> = {
-  "cUSD/CELO": "0x3135b662c38265d0655177091f1b647b4fef511103d06c016efdf18b46930d2c",
-  "CELO/cUSD": "0x3135b662c38265d0655177091f1b647b4fef511103d06c016efdf18b46930d2c",
-  "cUSD/USDC": "0xacc988382b66ee5456086643dcfd9a5ca43dd8f428f6ef22503d8b8013bcffd7",
-  "USDC/cUSD": "0xacc988382b66ee5456086643dcfd9a5ca43dd8f428f6ef22503d8b8013bcffd7",
-  "cUSD/USDT": "0x773bcec109cee923b5e04706044fd9d6a5121b1a6a4c059c36fdbe5b845d4e9b",
-  "USDT/cUSD": "0x773bcec109cee923b5e04706044fd9d6a5121b1a6a4c059c36fdbe5b845d4e9b",
-  "cUSD/cEUR": "0x746455363e8f55d04e0a2cc040d1b348a6c031b336ba6af6ae91515c194929c8",
-  "cEUR/cUSD": "0x746455363e8f55d04e0a2cc040d1b348a6c031b336ba6af6ae91515c194929c8",
-};
+import { type Address, parseAbiItem, decodeEventLog } from "viem";
 
 const FEE_TIERS = [100, 500, 3000, 10000] as const;
+
+// Transfer event for parsing actual amountOut from receipt
+const TRANSFER_EVENT = parseAbiItem("event Transfer(address indexed from, address indexed to, uint256 value)");
 
 async function ensureApproval(
   tokenAddr: Address,
@@ -67,16 +59,37 @@ async function ensureApproval(
     await publicClient.waitForTransactionReceipt({ hash: resetHash });
   }
 
-  // Approve max uint256 to avoid repeated approvals
-  const maxApproval = 2n ** 256n - 1n;
+  // Approve only the exact amount needed (not max uint256)
   const hash = await walletClient.writeContract({
     address: tokenAddr,
     abi: ERC20_ABI,
     functionName: "approve",
-    args: [spender, maxApproval],
+    args: [spender, amount],
   });
   await publicClient.waitForTransactionReceipt({ hash });
   return hash;
+}
+
+/** Parse Transfer events from receipt to find actual amount received */
+function parseActualOutput(
+  receipt: any,
+  tokenOutAddr: Address,
+  recipient: Address
+): bigint | null {
+  for (const log of receipt.logs) {
+    if (log.address.toLowerCase() !== tokenOutAddr.toLowerCase()) continue;
+    try {
+      const decoded = decodeEventLog({
+        abi: [TRANSFER_EVENT],
+        data: log.data,
+        topics: log.topics,
+      });
+      if ((decoded.args as any).to?.toLowerCase() === recipient.toLowerCase()) {
+        return (decoded.args as any).value as bigint;
+      }
+    } catch { continue; }
+  }
+  return null;
 }
 
 async function findBestUniswapFee(
@@ -87,8 +100,8 @@ async function findBestUniswapFee(
   let bestFee = 0;
   let bestOut = 0n;
 
-  for (const fee of FEE_TIERS) {
-    try {
+  const results = await Promise.allSettled(
+    FEE_TIERS.map(async (fee) => {
       const result = await publicClient.simulateContract({
         address: UNISWAP.quoterV2,
         abi: QUOTER_V2_ABI,
@@ -96,14 +109,17 @@ async function findBestUniswapFee(
         args: [{ tokenIn, tokenOut, amountIn, fee, sqrtPriceLimitX96: 0n }],
       });
       const [amountOut] = result.result as readonly [bigint, bigint, number, bigint];
-      if (amountOut > bestOut) {
-        bestOut = amountOut;
-        bestFee = fee;
-      }
-    } catch {
-      // skip
+      return { fee, amountOut };
+    })
+  );
+
+  for (const r of results) {
+    if (r.status === "fulfilled" && r.value.amountOut > bestOut) {
+      bestOut = r.value.amountOut;
+      bestFee = r.value.fee;
     }
   }
+
   return bestOut > 0n ? { fee: bestFee, amountOut: bestOut } : null;
 }
 
@@ -113,40 +129,38 @@ async function executeUniswap(
   amountIn: bigint,
   slippageBps: number,
   decimalsOut: number
-): Promise<{ txHash: string; amountOut: string }> {
+): Promise<{ txHash: string; estimatedOut: string; actualOut: string }> {
   const best = await findBestUniswapFee(tokenIn, tokenOut, amountIn);
   if (!best) fail("No Uniswap V3 pool found for this pair");
 
   const amountOutMin = withSlippage(best.amountOut, slippageBps);
+  const deadline = BigInt(Math.floor(Date.now() / 1000) + 300); // 5 min
 
-  // Approve
   const approvalHash = await ensureApproval(tokenIn, UNISWAP.swapRouter, amountIn);
-  if (approvalHash) {
-    console.error(`Approval tx: ${approvalHash}`);
-  }
+  if (approvalHash) console.error(`Approval tx: ${approvalHash}`);
 
-  // Execute swap
   const hash = await walletClient.writeContract({
     address: UNISWAP.swapRouter,
     abi: SWAP_ROUTER_ABI,
     functionName: "exactInputSingle",
-    args: [
-      {
-        tokenIn,
-        tokenOut,
-        fee: best.fee,
-        recipient: account.address,
-        amountIn,
-        amountOutMinimum: amountOutMin,
-        sqrtPriceLimitX96: 0n,
-      },
-    ],
+    args: [{
+      tokenIn,
+      tokenOut,
+      fee: best.fee,
+      recipient: account.address,
+      amountIn,
+      amountOutMinimum: amountOutMin,
+      sqrtPriceLimitX96: 0n,
+    }],
   });
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  const actualOut = parseActualOutput(receipt, tokenOut, account.address);
+
   return {
     txHash: hash,
-    amountOut: formatAmount(best.amountOut, decimalsOut),
+    estimatedOut: formatAmount(best.amountOut, decimalsOut),
+    actualOut: actualOut ? formatAmount(actualOut, decimalsOut) : formatAmount(best.amountOut, decimalsOut),
   };
 }
 
@@ -157,8 +171,7 @@ async function executeMento(
   exchangeId: `0x${string}`,
   slippageBps: number,
   decimalsOut: number
-): Promise<{ txHash: string; amountOut: string }> {
-  // Get expected output
+): Promise<{ txHash: string; estimatedOut: string; actualOut: string }> {
   const expectedOut = (await publicClient.readContract({
     address: MENTO.broker,
     abi: MENTO_BROKER_ABI,
@@ -168,13 +181,9 @@ async function executeMento(
 
   const amountOutMin = withSlippage(expectedOut, slippageBps);
 
-  // Approve
   const approvalHash = await ensureApproval(tokenIn, MENTO.broker, amountIn);
-  if (approvalHash) {
-    console.error(`Approval tx: ${approvalHash}`);
-  }
+  if (approvalHash) console.error(`Approval tx: ${approvalHash}`);
 
-  // Execute swap
   const hash = await walletClient.writeContract({
     address: MENTO.broker,
     abi: MENTO_BROKER_ABI,
@@ -183,9 +192,12 @@ async function executeMento(
   });
 
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
+  const actualOut = parseActualOutput(receipt, tokenOut, account.address);
+
   return {
     txHash: hash,
-    amountOut: formatAmount(expectedOut, decimalsOut),
+    estimatedOut: formatAmount(expectedOut, decimalsOut),
+    actualOut: actualOut ? formatAmount(actualOut, decimalsOut) : formatAmount(expectedOut, decimalsOut),
   };
 }
 
@@ -195,63 +207,50 @@ async function main() {
   const toStr = args.to;
   const amountStr = args.amount;
   const venue = (args.venue || "").toLowerCase();
-  const slippageBps = parseInt(args.slippage || "50", 10); // Default 0.5%
+  const slippageBps = parseInt(args.slippage || "50", 10);
 
   if (!fromStr || !toStr || !amountStr || !venue) {
-    fail("Usage: npx tsx execute.ts --from <TOKEN> --to <TOKEN> --amount <AMOUNT> --venue <uniswap|mento> [--slippage <BPS>]");
+    fail("Usage: npx tsx swap.ts --from <TOKEN|ADDRESS> --to <TOKEN|ADDRESS> --amount <AMOUNT> --venue <uniswap|mento> [--slippage <BPS>]");
   }
 
   if (venue !== "uniswap" && venue !== "mento") {
     fail('venue must be "uniswap" or "mento"');
   }
 
-  const fromToken = resolveToken(fromStr);
-  const toToken = resolveToken(toStr);
-  if (!fromToken) fail(`Unknown token: ${fromStr}`);
-  if (!toToken) fail(`Unknown token: ${toStr}`);
+  // Dynamic token resolution — works with any ERC-20 address on Celo
+  const fromToken = await resolveTokenDynamic(fromStr, publicClient);
+  const toToken = await resolveTokenDynamic(toStr, publicClient);
 
   const amountIn = parseAmount(amountStr, fromToken.decimals);
 
   // Check balance
-  const balance = (await publicClient.readContract({
-    address: fromToken.address,
-    abi: ERC20_ABI,
-    functionName: "balanceOf",
-    args: [account.address],
-  })) as bigint;
-
-  if (balance < amountIn) {
-    fail(
-      `Insufficient balance: ${formatAmount(balance, fromToken.decimals)} ${fromToken.symbol} < ${amountStr} ${fromToken.symbol}`
-    );
+  let balance: bigint;
+  if (fromToken.symbol === "CELO") {
+    balance = await publicClient.getBalance({ address: account.address });
+  } else {
+    balance = (await publicClient.readContract({
+      address: fromToken.address,
+      abi: ERC20_ABI,
+      functionName: "balanceOf",
+      args: [account.address],
+    })) as bigint;
   }
 
-  let result: { txHash: string; amountOut: string };
+  if (balance < amountIn) {
+    fail(`Insufficient balance: ${formatAmount(balance, fromToken.decimals)} ${fromToken.symbol} < ${amountStr} ${fromToken.symbol}`);
+  }
+
+  let result: { txHash: string; estimatedOut: string; actualOut: string };
 
   if (venue === "uniswap") {
-    result = await executeUniswap(
-      fromToken.address,
-      toToken.address,
-      amountIn,
-      slippageBps,
-      toToken.decimals
-    );
+    result = await executeUniswap(fromToken.address, toToken.address, amountIn, slippageBps, toToken.decimals);
   } else {
     const pairKey = `${fromToken.symbol}/${toToken.symbol}`;
     const exchangeId = MENTO_EXCHANGES[pairKey];
     if (!exchangeId) {
-      fail(
-        `No Mento exchange for ${pairKey}. Available: ${Object.keys(MENTO_EXCHANGES).join(", ")}`
-      );
+      fail(`No Mento exchange for ${pairKey}. Mento only supports cUSD pairs: ${Object.keys(MENTO_EXCHANGES).join(", ")}`);
     }
-    result = await executeMento(
-      fromToken.address,
-      toToken.address,
-      amountIn,
-      exchangeId,
-      slippageBps,
-      toToken.decimals
-    );
+    result = await executeMento(fromToken.address, toToken.address, amountIn, exchangeId, slippageBps, toToken.decimals);
   }
 
   output({
@@ -259,7 +258,8 @@ async function main() {
     venue,
     pair: `${fromToken.symbol} → ${toToken.symbol}`,
     amountIn: `${formatAmount(amountIn, fromToken.decimals)} ${fromToken.symbol}`,
-    amountOut: `${result.amountOut} ${toToken.symbol}`,
+    received: `${result.actualOut} ${toToken.symbol}`,
+    estimated: `${result.estimatedOut} ${toToken.symbol}`,
     slippage: `${slippageBps / 100}%`,
     txHash: result.txHash,
     explorer: `https://celoscan.io/tx/${result.txHash}`,
