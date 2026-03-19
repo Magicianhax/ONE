@@ -1873,9 +1873,9 @@ function animate() {
         if (approvalPending) {
           // Approval needed — stay seated, show buttons (don't walk back)
         } else if (!pendingDeskResult.isError) {
-          scheduleWalkBack(2500);
+          scheduleWalkBack(10000);
         } else {
-          scheduleWalkBack(2000);
+          scheduleWalkBack(10000);
         }
         pendingDeskResult = null;
       }
@@ -2586,29 +2586,29 @@ ws.onMessage((msg) => {
       deskScreenText = `Processing ${msg.action || 'request'}...\n\nPlease wait...`;
       break;
     case "action_result":
-      approvalPending = false; // clear any pending approval state
+      approvalPending = false;
       chat.addMessage(msg.message, "agent");
       if (/swap|supply|withdraw|success/i.test(msg.message)) triggerTransactionEffect();
       if (agentAnim === 'desk-mode') {
-        // Show result on desk screen, then stand up after delay
         deskScreenText = msg.message;
-        scheduleWalkBack(2500);
+        scheduleWalkBack(10000); // stay 6s so user can read the monitor
       } else if (agentAnim === 'sitting-down' || agentAnim === 'walking-to-target') {
-        // Still transitioning — queue result for when seated
         pendingDeskResult = { message: msg.message, isError: false };
+      } else if (agentAnim === 'at-target') {
+        scheduleWalkBack(10000); // stay at vault/piggy/bell 5s
       } else {
-        agentWalkBack();
+        scheduleWalkBack(10000); // fallback — don't rush
       }
       break;
     case "action_error":
       chat.addMessage(`Error: ${msg.message}`, "agent");
       if (agentAnim === 'desk-mode') {
         deskScreenText = `ERROR: ${msg.message}`;
-        scheduleWalkBack(2000);
+        scheduleWalkBack(10000);
       } else if (agentAnim === 'sitting-down' || agentAnim === 'walking-to-target') {
         pendingDeskResult = { message: `ERROR: ${msg.message}`, isError: true };
       } else {
-        agentWalkBack();
+        scheduleWalkBack(10000);
       }
       break;
     case "action_approval":
@@ -2626,11 +2626,13 @@ ws.onMessage((msg) => {
       chat.addMessage(msg.message, "agent");
       if (agentAnim === 'desk-mode') {
         deskScreenText = msg.message;
-        scheduleWalkBack(2000);
+        scheduleWalkBack(10000);
       } else if (agentAnim === 'sitting-down' || agentAnim === 'walking-to-target') {
         pendingDeskResult = { message: msg.message, isError: false };
+      } else if (agentAnim === 'at-target') {
+        scheduleWalkBack(10000);
       } else {
-        agentWalkBack();
+        scheduleWalkBack(10000);
       }
       break;
   }
@@ -2665,7 +2667,7 @@ container.addEventListener('click', (event) => {
           approvalPending = false;
           deskScreenText = 'Transaction declined.';
           chat.addMessage("Transaction declined", "system");
-          scheduleWalkBack(1500);
+          scheduleWalkBack(10000);
         }
         return;
       }

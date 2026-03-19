@@ -240,14 +240,58 @@ wss.on("connection", (ws: WebSocket) => {
       // ── Chat messages ──
       if (parsed.type !== "chat" || !parsed.message) return;
 
-      if (awaitingApproval) {
-        // Clear stale approval and proceed with new message
-        console.log("[approval] overriding stale approval with new message");
-        setApprovalPending(false);
-      }
-
       const userMessage = parsed.message;
       console.log(`[chat] ${userMessage}`);
+
+      // If approval is pending and user confirms via chat text, treat as approval
+      if (awaitingApproval) {
+        const lower = userMessage.toLowerCase().trim();
+        const isConfirm = /^(yes|confirm|approve|go ahead|do it|ok|yep|yeah|sure|y)$/i.test(lower)
+          || /^yes[,.]?\s*(confirm|go|do|execute|swap|proceed)/i.test(lower);
+        const isDecline = /^(no|cancel|decline|stop|nah|nope|n)$/i.test(lower);
+
+        if (isConfirm) {
+          console.log("[approval] user confirmed via chat text");
+          // Reuse the approval handler
+          parsed.type = "approval";
+          parsed.approved = true;
+          setApprovalPending(false);
+          try {
+            const { text, durationMs } = await runAgentTurn(
+              `yes, confirm and execute: ${lastUserIntent}`
+            );
+            send(ws, {
+              type: "action_result",
+              action: detectAction(text).action,
+              data: { raw: text },
+              message: text,
+            });
+            recordAction("executed", text);
+            console.log(`[agent] executed in ${durationMs}ms`);
+          } catch (err: any) {
+            send(ws, {
+              type: "action_error",
+              message: `Execution error: ${err.message.slice(0, 200)}`,
+            });
+          }
+          return;
+        } else if (isDecline) {
+          console.log("[approval] user declined via chat text");
+          setApprovalPending(false);
+          try { await runAgentTurn("no, cancel"); } catch { /* ignore */ }
+          send(ws, {
+            type: "action_result",
+            action: "cancelled",
+            data: {},
+            message: "Transaction cancelled.",
+          });
+          return;
+        } else {
+          // Not a yes/no — clear stale approval and process as new message
+          console.log("[approval] new message overrides pending approval");
+          setApprovalPending(false);
+        }
+      }
 
       const userAction = detectAction(userMessage);
       lastUserIntent = userMessage;

@@ -87,8 +87,8 @@ cd ~/one && npx tsx skills/one/scripts/lend-withdraw.ts --token <TOKEN> --amount
 
 **Rules:**
 - Show APYs before any deposit
-- Confirm before executing
-- Note: AAVE supply uses unlimited approval to the AAVE V3 pool contract. Tell the user this.
+- **Do NOT ask for confirmation** — the user already explicitly asked to supply/withdraw. Just execute it directly and show the result.
+- Note: AAVE supply uses unlimited approval to the AAVE V3 pool contract.
 
 ---
 
@@ -130,9 +130,11 @@ Scans cUSD/USDC, cUSD/USDT, cUSD/cEUR between Uniswap and Mento in parallel. Not
 ### Full workflow — when user says "save $X for Y":
 1. **Create goal:** `savings-goal.ts --action create --name "Y" --target X --currency cUSD --deadline <DATE> --strategy aave`
    - This is state only — no on-chain transaction yet
-2. **Ask user:** "Want me to deposit X to AAVE now to start earning yield?"
-3. **If yes — supply to AAVE:** `lend-supply.ts --token cUSD --amount X` (this is the real on-chain tx)
-4. **Record the deposit:** `savings-goal.ts --action deposit --id <ID> --amount X` (syncs the local ledger)
+2. **Supply to AAVE immediately:** `lend-supply.ts --token cUSD --amount X` (real on-chain tx — do NOT ask for confirmation, just do it)
+3. **Record the deposit:** `savings-goal.ts --action deposit --id <ID> --amount X` (syncs the local ledger)
+4. Report the result with txHash
+
+**Do NOT ask for confirmation** for savings deposits — the user already said "save/deposit". Just execute.
 
 ### Important: deposits are TWO steps
 - `savings-goal.ts --action deposit` only updates a JSON file. It does NOT move tokens.
@@ -240,8 +242,9 @@ Say: "That's outside what I can do right now. I handle swaps, lending, LP tracki
 
 ## Safety Rules
 
-1. **Confirm before any transaction** — show amounts, venue, fees, slippage. Exception: auto-trade alerts.
-2. **Compare Uniswap and Mento** for swaps where both are available.
+1. **Confirm before SWAPS only** — show quote, venue, fees, slippage, then ask "Confirm?". Exception: auto-trade alerts.
+2. **Do NOT confirm** for AAVE supply/withdraw, savings deposits, or goal creation — the user already explicitly asked. Just execute and show the result.
+3. **Compare Uniswap and Mento** for swaps where both are available.
 3. **Show APY before deposits** to AAVE.
 4. **Never expose private keys** in responses.
 5. **Keep responses concise** — exact numbers, no filler. Link to celoscan.io/tx/ after transactions.

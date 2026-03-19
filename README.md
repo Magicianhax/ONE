@@ -6,6 +6,16 @@ Personal DeFi agent on Celo. Talk to it via Telegram or a 3D web UI — it swaps
 
 Built as an [OpenClaw](https://openclaw.ai) skill. Registered on-chain via [ERC-8004](https://eips.ethereum.org/EIPS/eip-8004).
 
+## Screenshots
+
+| Swapping on the computer | Setting a savings goal |
+|---|---|
+| ![Desk mode — swap with approve/decline](docs/screenshots/desk-mode-swap.png) | ![Agent at piggy bank](docs/screenshots/piggy-bank-setting-goal.png) |
+
+| Supplying to AAVE V3 | Night mode — agent sleeping |
+|---|---|
+| ![AAVE supply via vault](docs/screenshots/supplying-aave-vault.png) | ![Night mode](docs/screenshots/agent-sleeping.png) |
+
 ## The problem
 
 Managing DeFi on Celo means juggling multiple UIs, copying contract addresses, calculating slippage, and switching between protocols. ONE consolidates all of it into chat. You say what you want, it figures out the contracts.
