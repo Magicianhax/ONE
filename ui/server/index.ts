@@ -122,11 +122,8 @@ function needsConfirmation(text: string): boolean {
 // ── Detect if response is incomplete (agent tried multi-step but stopped) ──
 
 function isIncomplete(text: string): boolean {
-  const trimmed = text.trim();
-  // Ends mid-sentence with colon, ellipsis, or comma
-  if (/[:…,]\s*$/.test(trimmed)) return true;
-  // Says "first" or "step 1" but doesn't mention "done" or "complete"
-  if (/\b(first|step 1|let me start)\b/i.test(trimmed) && !/\b(done|complete|finished|success)\b/i.test(trimmed)) return true;
+  // Disabled — was causing false positives (agent says "let me quote:" and gets
+  // interrupted). The agent should complete tasks in one turn via CELO_CONTEXT.
   return false;
 }
 
@@ -313,12 +310,6 @@ wss.on("connection", (ws: WebSocket) => {
         // If response is incomplete, ask agent to continue (up to 2 retries)
         for (let retry = 0; retry < 2 && isIncomplete(text); retry++) {
           console.log(`[agent] incomplete response, continuing... (retry ${retry + 1})`);
-          // Send intermediate update to client
-          send(ws, {
-            type: "action_approval",
-            action: userAction.action,
-            message: text + "\n\n⏳ Working on it...",
-          });
           const cont = await runAgentTurn("continue — finish the task completely");
           text = text + "\n\n" + cont.text;
           totalMs += cont.durationMs;
