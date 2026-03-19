@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#3DE88F"/>
+      <stop offset="100%" stop-color="#2AB86A"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FCFF52"/>
+      <stop offset="50%" stop-color="#35D07F"/>
+      <stop offset="100%" stop-color="#28A065"/>
+    </linearGradient>
+    <radialGradient id="skin" cx="50%" cy="40%" r="50%">
+      <stop offset="0%" stop-color="#FFE0BD"/>
+      <stop offset="100%" stop-color="#F5C69A"/>
+    </radialGradient>
+    <linearGradient id="hair" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8B6040"/>
+      <stop offset="100%" stop-color="#6B4226"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Badge circle -->
+  <circle cx="16" cy="16" r="15.5" fill="url(#ring)"/>
+  <circle cx="16" cy="16" r="14" fill="url(#bg)"/>
+
+  <!-- Shirt peek -->
+  <path d="M9 27 Q9 24 12 23 L16 25 L20 23 Q23 24 23 27 L23 30 L9 30 Z" fill="#FCFF52"/>
+  <path d="M12.5 23.5 L16 26 L19.5 23.5" fill="none" stroke="#D4D720" stroke-width="0.5"/>
+
+  <!-- Neck -->
+  <rect x="14" y="21.5" width="4" height="2.5" rx="1" fill="url(#skin)"/>
+
+  <!-- Head -->
+  <ellipse cx="16" cy="15.5" rx="7" ry="7.5" fill="url(#skin)"/>
+
+  <!-- Ears -->
+  <ellipse cx="8.8" cy="16" rx="1.2" ry="1.5" fill="#F5C69A"/>
+  <ellipse cx="23.2" cy="16" rx="1.2" ry="1.5" fill="#F5C69A"/>
+
+  <!-- Hair back -->
+  <ellipse cx="16" cy="11" rx="7.8" ry="5" fill="url(#hair)"/>
+
+  <!-- Bangs - simplified -->
+  <path d="M9.5 13.5 Q11 11 13 12 Q14 10.5 16 11 Q18 10.5 19 12 Q21 11 22.5 13.5 Q21 12.5 19.5 13 Q18 11.5 16 12.5 Q14 11.5 12.5 13 Q11 12.5 9.5 13.5 Z" fill="url(#hair)"/>
+
+  <!-- Hair tufts -->
+  <path d="M11 11 Q10 7.5 13 7 Q14.5 7 14.5 9" fill="url(#hair)"/>
+  <path d="M14.5 9 Q15 6 17 6 Q19 6 17.5 9" fill="url(#hair)"/>
+  <path d="M17.5 9 Q18.5 7 20 7 Q22 7.5 21 11" fill="url(#hair)"/>
+
+  <!-- Eyes - simplified but still expressive -->
+  <!-- Left eye -->
+  <ellipse cx="13" cy="16" rx="2" ry="2.2" fill="#fff"/>
+  <ellipse cx="13.3" cy="16.2" rx="1.5" ry="1.7" fill="#35D07F"/>
+  <circle cx="13.3" cy="16.2" r="0.9" fill="#0D4D2D"/>
+  <circle cx="14" cy="15.5" r="0.6" fill="#fff"/>
+
+  <!-- Right eye -->
+  <ellipse cx="19" cy="16" rx="2" ry="2.2" fill="#fff"/>
+  <ellipse cx="18.7" cy="16.2" rx="1.5" ry="1.7" fill="#35D07F"/>
+  <circle cx="18.7" cy="16.2" r="0.9" fill="#0D4D2D"/>
+  <circle cx="19.4" cy="15.5" r="0.6" fill="#fff"/>
+
+  <!-- Eyebrows -->
+  <path d="M11.2 13.8 Q13 13 14.5 13.5" fill="none" stroke="#6B4226" stroke-width="0.6" stroke-linecap="round"/>
+  <path d="M17.5 13.5 Q19 13 20.8 13.8" fill="none" stroke="#6B4226" stroke-width="0.6" stroke-linecap="round"/>
+
+  <!-- Nose -->
+  <circle cx="16" cy="18" r="0.5" fill="#E8B88A"/>
+
+  <!-- Mouth - smile -->
+  <path d="M14 19.5 Q15.2 21 16 21 Q16.8 21 18 19.5" fill="none" stroke="#C47A5A" stroke-width="0.7" stroke-linecap="round"/>
+
+  <!-- Blush -->
+  <ellipse cx="11.5" cy="18.5" rx="1.3" ry="0.8" fill="#FFB0B0" opacity="0.45"/>
+  <ellipse cx="20.5" cy="18.5" rx="1.3" ry="0.8" fill="#FFB0B0" opacity="0.45"/>
+</svg>

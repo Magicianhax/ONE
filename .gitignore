@@ -1,0 +1,42 @@
+# Secrets
+.env
+!.env.example
+*.pem
+*.key
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+ui/dist/
+
+# State (runtime data)
+state/
+
+# Logs
+*.log
+/tmp/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+
+# Temp/test scripts
+scripts/get-agent-id.ts
+
+# Draft/notes files
+detailes.txt
+ideas.txt
+rough.md
+
+# Tasks (claude internal)
+tasks/
+
+# Package lock (root)
+/package-lock.json

@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ONE — DeFi Agent on Celo</title>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --wood-dark: #5C3D1E;
+      --wood-mid: #8B6540;
+      --wood-light: #A07848;
+      --wood-edge: #4A2E14;
+      --parchment: #F5E6C8;
+      --parchment-dark: #E8D4AD;
+      --parchment-deep: #DCC49A;
+      --ink: #3A2510;
+      --ink-light: #6B5030;
+      --celo-green: #35D07F;
+      --celo-yellow: #FCFF52;
+      --gold: #F0C040;
+      --gold-dark: #D4A030;
+      --cream: #FFF8ED;
+      --chat-user: #C8EDDA;
+      --chat-agent: #FFF3DC;
+      --danger: #E85D4A;
+      --shadow-warm: rgba(60, 30, 10, 0.25);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #1a1520; font-family: 'Nunito', sans-serif; }
+
+    #app { display: flex; flex-direction: column; width: 100vw; height: 100vh; }
+    #main-row { display: flex; flex: 1; min-height: 0; }
+    #scene-container { flex: 7; position: relative; background: #1c1226; }
+
+    /* ══════════════════════════════════════════════════
+       CHAT PANEL — Wooden frame + parchment interior
+       ══════════════════════════════════════════════════ */
+    #chat-panel {
+      flex: 3; min-width: 320px; max-width: 420px;
+      background: var(--wood-mid);
+      border-left: 4px solid var(--wood-edge);
+      display: flex; flex-direction: column;
+      position: relative;
+      box-shadow: inset 2px 0 8px rgba(0,0,0,0.3);
+    }
+
+    /* Wood grain texture overlay */
+    #chat-panel::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(
+        90deg,
+        transparent, transparent 18px,
+        rgba(0,0,0,0.04) 18px, rgba(0,0,0,0.04) 20px
+      );
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ── Chat Header — like a wooden sign ── */
+    #chat-header {
+      padding: 14px 16px;
+      display: flex; align-items: center; gap: 10px;
+      background: linear-gradient(180deg, var(--wood-dark) 0%, #4A3018 100%);
+      border-bottom: 3px solid var(--wood-edge);
+      position: relative; z-index: 1;
+      box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+    }
+
+    #chat-header .avatar {
+      width: 42px; height: 42px; border-radius: 50%;
+      border: 3px solid var(--gold-dark);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    #chat-header .avatar img {
+      width: 100%; height: 100%; object-fit: cover;
+    }
+
+    #chat-header .info { flex: 1; }
+    #chat-header .info h2 {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 16px; font-weight: 700; color: var(--cream);
+      display: flex; align-items: center; gap: 8px;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+    #chat-header .info h2 .badge {
+      font-family: 'Nunito', sans-serif;
+      font-size: 9px; font-weight: 800;
+      background: var(--celo-green); color: #fff;
+      padding: 2px 7px; border-radius: 6px;
+      letter-spacing: 0.5px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    #chat-header .info span { color: #c8a878; font-size: 11px; font-weight: 600; }
+    #chat-header .status-dot {
+      width: 10px; height: 10px;
+      background: var(--celo-green);
+      border: 2px solid var(--wood-dark);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+      box-shadow: 0 0 8px var(--celo-green);
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(0.85); } }
+
+    /* ── Messages — parchment scroll area ── */
+    #messages {
+      flex: 1; overflow-y: auto;
+      padding: 14px 12px;
+      display: flex; flex-direction: column; gap: 8px;
+      background: linear-gradient(180deg, var(--parchment) 0%, var(--parchment-dark) 100%);
+      position: relative; z-index: 1;
+    }
+    #messages::-webkit-scrollbar { width: 6px; }
+    #messages::-webkit-scrollbar-track { background: var(--parchment-dark); }
+    #messages::-webkit-scrollbar-thumb { background: var(--wood-light); border-radius: 3px; }
+
+    .msg {
+      max-width: 85%; padding: 10px 14px;
+      font-size: 13px; line-height: 1.6;
+      white-space: pre-wrap; word-break: break-word;
+      animation: msgPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      position: relative;
+    }
+    @keyframes msgPop {
+      from { opacity: 0; transform: scale(0.9) translateY(6px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    .msg.user {
+      align-self: flex-end;
+      background: var(--chat-user);
+      color: #1a4a2a; font-weight: 600;
+      border-radius: 16px 16px 4px 16px;
+      border: 2px solid #a8d8b8;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    }
+
+    .msg.agent {
+      align-self: flex-start;
+      background: var(--chat-agent);
+      color: var(--ink);
+      border-radius: 16px 16px 16px 4px;
+      border: 2px solid #e8d0a8;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    }
+
+    .msg.system {
+      align-self: center;
+      background: var(--parchment-deep);
+      color: var(--ink-light);
+      font-size: 11px; font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 12px;
+      border: 1px dashed #c8a878;
+    }
+
+    /* Markdown elements in chat messages */
+    .msg a {
+      color: var(--celo-green, #35D07F);
+      text-decoration: underline;
+      font-weight: 600;
+      word-break: break-all;
+    }
+    .msg a:hover { color: #28a866; }
+    .msg strong { font-weight: 700; }
+    .msg em { font-style: italic; }
+    .msg code {
+      background: rgba(0,0,0,0.08);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+
+    /* Markdown tables in chat */
+    .chat-table {
+      width: 100%; border-collapse: collapse; margin: 6px 0;
+      font-size: 11px; line-height: 1.4;
+    }
+    .chat-table th {
+      background: rgba(92,61,30,0.12); color: var(--ink);
+      font-family: 'Fredoka', sans-serif; font-weight: 600;
+      padding: 5px 8px; text-align: left;
+      border-bottom: 2px solid var(--wood-edge);
+    }
+    .chat-table td {
+      padding: 4px 8px; border-bottom: 1px solid rgba(200,168,120,0.3);
+      color: var(--ink); font-family: 'Nunito', sans-serif;
+    }
+    .chat-table tr:hover td { background: rgba(252,255,82,0.08); }
+    .chat-table code {
+      background: rgba(53,208,127,0.12); color: #2a6848;
+      padding: 1px 4px; border-radius: 3px; font-size: 10px;
+    }
+
+    /* ══════════════════════════════════════════════════
+       CENTERED CARD POPUP — woody game style
+       ══════════════════════════════════════════════════ */
+    #card-overlay {
+      display: none; position: fixed; inset: 0; z-index: 100;
+      background: rgba(20,10,0,0.55);
+      backdrop-filter: blur(4px);
+      align-items: center; justify-content: center;
+    }
+    #card-overlay.open { display: flex; }
+
+    #card-popup {
+      width: 420px; max-width: 92vw; max-height: 75vh;
+      background: linear-gradient(180deg, var(--parchment) 0%, var(--parchment-dark) 100%);
+      border: 4px solid var(--wood-mid);
+      border-radius: 18px;
+      box-shadow: 0 12px 40px rgba(40,20,0,0.4), inset 0 1px 0 rgba(255,255,255,0.3);
+      overflow: hidden;
+      animation: cardIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes cardIn {
+      from { transform: scale(0.9) translateY(20px); opacity: 0; }
+      to { transform: scale(1) translateY(0); opacity: 1; }
+    }
+    #card-header {
+      padding: 14px 18px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: linear-gradient(180deg, var(--wood-dark) 0%, #4A3018 100%);
+      border-bottom: 3px solid var(--wood-edge);
+    }
+    #card-header h3 {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 16px; font-weight: 700; color: var(--cream);
+      display: flex; align-items: center; gap: 8px;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+    #card-header .card-icon {
+      font-size: 20px;
+    }
+    #card-close {
+      background: rgba(255,255,255,0.1);
+      border: 2px solid rgba(255,255,255,0.15);
+      color: var(--cream);
+      width: 30px; height: 30px; border-radius: 50%;
+      font-size: 14px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    #card-close:hover { background: var(--danger); border-color: #c04030; }
+    #card-body {
+      padding: 16px 18px; overflow-y: auto; max-height: 55vh;
+      color: var(--ink);
+    }
+    #card-body .card-row {
+      border-radius: 12px; margin-bottom: 6px; padding: 10px 14px;
+      background: rgba(255,255,255,0.5); border: 1px solid #e0cca0;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    #card-body .card-label {
+      font-size: 12px; font-weight: 700; color: var(--ink);
+      font-family: 'Fredoka', sans-serif;
+    }
+    #card-body .card-value {
+      font-size: 13px; font-weight: 800; color: var(--gold-dark);
+      font-family: 'Nunito', sans-serif;
+    }
+    #card-body .card-section-title {
+      font-size: 10px; font-weight: 700; color: #a08860;
+      text-transform: uppercase; letter-spacing: 1.5px;
+      margin: 12px 0 6px; font-family: 'Fredoka', sans-serif;
+    }
+    #card-body .card-empty {
+      text-align: center; padding: 24px; color: #a08860;
+      font-size: 13px; font-family: 'Fredoka', sans-serif;
+    }
+
+    /* ── Suggestions — wooden tag buttons ── */
+    #suggestions {
+      padding: 6px 12px 4px;
+      display: flex; flex-wrap: wrap; gap: 6px;
+      background: var(--parchment-dark);
+      position: relative; z-index: 1;
+    }
+    .suggestion-chip {
+      background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
+      border: 2px solid #b88828;
+      color: var(--ink); padding: 5px 12px;
+      border-radius: 14px;
+      font-size: 11px; font-weight: 700;
+      font-family: 'Fredoka', sans-serif;
+      cursor: pointer; transition: all 0.15s;
+      white-space: nowrap;
+      box-shadow: 0 2px 0 #a07020, 0 3px 6px rgba(0,0,0,0.15);
+      text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    }
+    .suggestion-chip:hover { transform: translateY(-2px); box-shadow: 0 4px 0 #a07020, 0 6px 10px rgba(0,0,0,0.2); }
+    .suggestion-chip:active { transform: translateY(1px); box-shadow: 0 1px 0 #a07020; }
+
+    /* ── Input Area — wooden shelf with parchment input ── */
+    #input-area {
+      padding: 10px 12px 14px;
+      background: linear-gradient(180deg, var(--wood-dark) 0%, #3A2010 100%);
+      border-top: 3px solid var(--wood-edge);
+      display: flex; gap: 8px; align-items: center;
+      position: relative; z-index: 1;
+      box-shadow: 0 -3px 8px rgba(0,0,0,0.2);
+    }
+    #chat-input {
+      flex: 1;
+      background: var(--parchment);
+      border: 2px solid var(--wood-light);
+      border-radius: 14px;
+      padding: 10px 14px;
+      color: var(--ink);
+      font-family: 'Nunito', sans-serif;
+      font-size: 13px; font-weight: 600;
+      outline: none; resize: none;
+      overflow-y: hidden; max-height: 100px; line-height: 1.4;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.08);
+    }
+    #chat-input:focus { border-color: var(--gold); box-shadow: inset 0 2px 4px rgba(0,0,0,0.08), 0 0 0 3px rgba(240,192,64,0.2); }
+    #chat-input::placeholder { color: #a08860; font-weight: 400; }
+
+    #send-btn {
+      width: 44px; height: 44px;
+      background: linear-gradient(180deg, var(--celo-green), #28a868);
+      color: #fff; border: 2px solid #208050;
+      border-radius: 50%; font-size: 18px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s; flex-shrink: 0;
+      box-shadow: 0 3px 0 #1a6840, 0 4px 8px rgba(0,0,0,0.2);
+    }
+    #send-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 0 #1a6840, 0 6px 12px rgba(0,0,0,0.25); }
+    #send-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 #1a6840; }
+
+    /* Day/Night toggle */
+    #day-night-btn {
+      position: absolute; top: 16px; left: 16px; z-index: 10;
+      width: 46px; height: 46px; border-radius: 50%;
+      border: 3px solid var(--wood-light);
+      background: linear-gradient(135deg, var(--parchment), var(--parchment-dark));
+      color: var(--ink); font-size: 20px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s;
+      box-shadow: 0 3px 0 var(--wood-dark), 0 4px 10px rgba(0,0,0,0.3);
+    }
+    #day-night-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 0 var(--wood-dark), 0 6px 14px rgba(0,0,0,0.35); }
+    #day-night-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 var(--wood-dark); }
+
+    /* Typing indicator */
+    .typing-indicator { display: flex; gap: 6px; padding: 10px 14px; }
+    .typing-indicator span {
+      width: 8px; height: 8px;
+      background: var(--gold);
+      border-radius: 50%;
+      border: 1px solid var(--gold-dark);
+      animation: bounce 1.4s infinite;
+    }
+    .typing-indicator span:nth-child(2) { animation-delay: 0.15s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-8px); }
+    }
+
+    /* ══════════════════════════════════════════════════
+       BOTTOM TOOLBAR — Wooden shelf with item tabs
+       ══════════════════════════════════════════════════ */
+    #bottom-bar {
+      height: 56px;
+      background: linear-gradient(180deg, var(--wood-mid) 0%, var(--wood-dark) 100%);
+      border-top: 3px solid var(--wood-edge);
+      display: flex; align-items: center;
+      padding: 0 12px; gap: 4px; flex-shrink: 0;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.3);
+      position: relative;
+    }
+    /* Wood grain */
+    #bottom-bar::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent, transparent 8px,
+        rgba(0,0,0,0.03) 8px, rgba(0,0,0,0.03) 10px
+      );
+      pointer-events: none;
+    }
+
+    .bar-tab {
+      display: flex; align-items: center; gap: 5px;
+      padding: 8px 12px; border-radius: 10px;
+      background: rgba(0,0,0,0.15);
+      border: 2px solid transparent;
+      color: #c8a878;
+      font-family: 'Fredoka', sans-serif;
+      font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+      white-space: nowrap;
+      position: relative; z-index: 1;
+    }
+    .bar-tab .tab-icon { font-size: 15px; }
+    .bar-tab:hover {
+      background: rgba(255,255,255,0.08);
+      color: var(--cream);
+      border-color: rgba(255,255,255,0.1);
+      transform: translateY(-1px);
+    }
+    .bar-tab.active {
+      background: linear-gradient(180deg, var(--gold), var(--gold-dark));
+      color: var(--ink);
+      border-color: #b88828;
+      box-shadow: 0 2px 0 #886018, 0 3px 6px rgba(0,0,0,0.2);
+      text-shadow: 0 1px 0 rgba(255,255,255,0.3);
+    }
+
+    .bar-spacer { flex: 1; }
+
+    .bar-wallet {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 20px;
+      background: linear-gradient(135deg, rgba(53,208,127,0.2), rgba(53,208,127,0.1));
+      border: 2px solid rgba(53,208,127,0.3);
+      color: #90eeb8;
+      font-family: 'Fredoka', sans-serif;
+      font-size: 11px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+      position: relative; z-index: 1;
+    }
+    .bar-wallet:hover { background: rgba(53,208,127,0.25); border-color: rgba(53,208,127,0.5); transform: translateY(-1px); }
+    .bar-wallet .wallet-dot {
+      width: 7px; height: 7px;
+      background: var(--celo-green);
+      border-radius: 50%;
+      box-shadow: 0 0 6px var(--celo-green);
+      animation: pulse 2s infinite;
+    }
+
+    /* ══════════════════════════════════════════════════
+       SLIDE-UP PANEL — Parchment scroll
+       ══════════════════════════════════════════════════ */
+    #panel-overlay {
+      display: none; position: fixed; inset: 0; z-index: 50;
+      background: rgba(20,10,0,0.5);
+      backdrop-filter: blur(3px);
+    }
+    #panel-overlay.open { display: block; }
+
+    #panel {
+      position: fixed; bottom: 56px; left: 0; right: 0; z-index: 51;
+      max-height: 55vh; min-height: 180px;
+      background: linear-gradient(180deg, var(--parchment) 0%, var(--parchment-dark) 100%);
+      border-top: 4px solid var(--wood-mid);
+      border-radius: 18px 18px 0 0;
+      overflow-y: auto;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      display: none;
+      box-shadow: 0 -4px 20px rgba(60,30,10,0.3);
+    }
+    #panel.open { display: block; transform: translateY(0); }
+
+    #panel-header {
+      padding: 14px 18px 10px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 2px solid var(--parchment-deep);
+      position: sticky; top: 0;
+      background: var(--parchment);
+      z-index: 1;
+    }
+    #panel-header h3 {
+      font-family: 'Fredoka', sans-serif;
+      font-size: 16px; font-weight: 700; color: var(--ink);
+    }
+    #panel-close {
+      background: var(--parchment-deep);
+      border: 2px solid #c8a878;
+      color: var(--ink-light);
+      width: 30px; height: 30px; border-radius: 50%;
+      font-size: 14px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+      box-shadow: 0 2px 0 #b09060;
+    }
+    #panel-close:hover { background: var(--danger); color: #fff; border-color: #c04030; box-shadow: 0 2px 0 #a03020; }
+
+    #panel-content { padding: 14px 18px 18px; color: var(--ink); }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="main-row">
+      <div id="scene-container">
+        <button id="day-night-btn" title="Toggle Day/Night">&#9728;&#65039;</button>
+      </div>
+      <div id="chat-panel">
+        <div id="chat-header">
+          <div class="avatar"><img src="/logo.png" alt="ONE"></div>
+          <div class="info">
+            <h2>ONE Agent <span class="badge">CELO</span></h2>
+            <span>Your DeFi companion</span>
+          </div>
+          <div class="status-dot"></div>
+        </div>
+        <div id="messages">
+          <div class="msg system">gm! ready to manage your DeFi on Celo.</div>
+        </div>
+        <div id="suggestions">
+          <button class="suggestion-chip" data-msg="check balance">Check Balance</button>
+          <button class="suggestion-chip" data-msg="swap 1 USDC to CELO">Swap USDC</button>
+          <button class="suggestion-chip" data-msg="show AAVE APYs">AAVE APYs</button>
+          <button class="suggestion-chip" data-msg="show my positions">Positions</button>
+          <button class="suggestion-chip" data-msg="what can you do?">Help</button>
+        </div>
+        <div id="input-area">
+          <textarea id="chat-input" rows="1" placeholder="Talk to ONE..." autocomplete="off"></textarea>
+          <button id="send-btn">&#10148;</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="bottom-bar">
+      <button class="bar-tab" data-panel="wallet"><span class="tab-icon">&#128176;</span> Wallet</button>
+      <button class="bar-tab" data-panel="actions"><span class="tab-icon">&#9889;</span> Actions</button>
+      <button class="bar-tab" data-panel="arbitrage"><span class="tab-icon">&#128200;</span> Arb</button>
+      <button class="bar-tab" data-panel="cron"><span class="tab-icon">&#128276;</span> Alerts</button>
+      <button class="bar-tab" data-panel="about"><span class="tab-icon">&#9733;</span> About</button>
+      <div class="bar-spacer"></div>
+      <button class="bar-wallet" id="wallet-btn">
+        <span class="wallet-dot"></span>
+        <span id="wallet-addr">Not connected</span>
+      </button>
+    </div>
+
+    <div id="panel-overlay"></div>
+    <div id="panel">
+      <div id="panel-header">
+        <h3 id="panel-title">Panel</h3>
+        <button id="panel-close">&#10005;</button>
+      </div>
+      <div id="panel-content"></div>
+    </div>
+
+    <!-- Centered card popup (for 3D object clicks + toolbar) -->
+    <div id="card-overlay">
+      <div id="card-popup">
+        <div id="card-header">
+          <h3><span class="card-icon" id="card-icon"></span> <span id="card-title">Details</span></h3>
+          <button id="card-close">&#10005;</button>
+        </div>
+        <div id="card-body"></div>
+      </div>
+    </div>
+
+    <template id="tmpl-about">
+      <div style="font-size:13px;line-height:1.8;color:#5a4030">
+        <span style="font-family:Fredoka,sans-serif;font-size:18px;font-weight:700;color:#3A2510">ONE</span> is your personal DeFi agent on <span style="color:#35D07F;font-weight:700">Celo</span>.<br><br>
+        Built as an OpenClaw skill set:<br>
+        &#127793; <b>Swap</b> tokens across DEXs<br>
+        &#127974; <b>Lend &amp; Borrow</b> on AAVE V3<br>
+        &#128167; <b>Manage LP</b> positions<br>
+        &#128200; <b>Scan arbitrage</b> opportunities<br>
+        &#128276; <b>Set alerts</b> &amp; automate<br>
+        &#127873; <b>DCA savings</b> plans<br><br>
+      </div>
+    </template>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+  <script>
+    var panelEl = document.getElementById('panel');
+    var overlayEl = document.getElementById('panel-overlay');
+    var panelTitle = document.getElementById('panel-title');
+    var panelContent = document.getElementById('panel-content');
+    var activePanel = null;
+    var API = 'http://' + window.location.hostname + ':3002';
+    var titles = { wallet: 'Wallet', actions: 'Recent Actions', arbitrage: 'Arbitrage Scanner', cron: 'Alerts & Automations', about: 'About ONE' };
+
+    function closePanel() {
+      panelEl.classList.remove('open');
+      overlayEl.classList.remove('open');
+      document.querySelectorAll('.bar-tab').forEach(function(t) { t.classList.remove('active'); });
+      activePanel = null;
+    }
+
+    function openPanel(name) {
+      if (activePanel === name) { closePanel(); return; }
+      activePanel = name;
+      document.querySelectorAll('.bar-tab').forEach(function(t) { t.classList.toggle('active', t.dataset.panel === name); });
+      panelTitle.textContent = titles[name] || 'Panel';
+      panelContent.textContent = '';
+
+      if (name === 'about') {
+        var tmpl = document.getElementById('tmpl-about');
+        if (tmpl) panelContent.appendChild(tmpl.content.cloneNode(true));
+      } else {
+        var loader = document.createElement('div');
+        loader.style.cssText = 'text-align:center;padding:30px;color:#a08860;font-size:13px;font-family:Fredoka,sans-serif';
+        loader.textContent = 'Loading...';
+        panelContent.appendChild(loader);
+        fetchPanelData(name);
+      }
+      panelEl.classList.add('open');
+      overlayEl.classList.add('open');
+    }
+
+    var rs = 'border-radius:12px;margin-bottom:6px;padding:10px 14px;';
+    var cardBg = 'background:rgba(255,255,255,0.5);border:1px solid #e0cca0;';
+
+    function fetchPanelData(name) {
+      var endpoint = '';
+      if (name === 'wallet') endpoint = '/api/balance';
+      else if (name === 'actions') endpoint = '/api/actions';
+      else if (name === 'arbitrage') endpoint = '/api/arb-scan';
+      else if (name === 'cron') endpoint = '/api/alerts';
+      else return;
+
+      fetch(API + endpoint)
+        .then(function(r) { return r.json(); })
+        .then(function(data) { renderPanel(name, data); })
+        .catch(function(err) {
+          if (activePanel === name) {
+            panelContent.textContent = '';
+            var errDiv = document.createElement('div');
+            errDiv.style.cssText = 'text-align:center;padding:30px;color:#E85D4A;font-size:13px';
+            errDiv.textContent = 'Failed to connect';
+            panelContent.appendChild(errDiv);
+          }
+        });
+    }
+
+    function renderPanel(name, data) {
+      if (activePanel !== name) return;
+      panelContent.textContent = '';
+
+      if (name === 'wallet') {
+        if (data.status === 'error') {
+          var e = document.createElement('div');
+          e.style.cssText = 'text-align:center;padding:20px;color:#E85D4A;font-size:12px';
+          e.textContent = data.message;
+          panelContent.appendChild(e);
+          return;
+        }
+        if (data.wallet) {
+          var ar = document.createElement('div');
+          ar.style.cssText = rs + cardBg + 'display:flex;align-items:center;justify-content:space-between;background:rgba(53,208,127,0.08);border-color:rgba(53,208,127,0.2)';
+          var al = document.createElement('span');
+          al.style.cssText = 'font-size:11px;font-weight:700;color:#35D07F;font-family:Fredoka,sans-serif';
+          al.textContent = 'Wallet';
+          var av = document.createElement('span');
+          av.style.cssText = 'font-size:12px;font-weight:700;color:#35D07F;font-family:monospace';
+          av.textContent = data.wallet.slice(0,6) + '...' + data.wallet.slice(-4);
+          ar.appendChild(al); ar.appendChild(av);
+          panelContent.appendChild(ar);
+        }
+        var lb = document.createElement('div');
+        lb.style.cssText = 'font-size:10px;font-weight:700;color:#a08860;text-transform:uppercase;letter-spacing:1.5px;margin:10px 0 6px;font-family:Fredoka,sans-serif';
+        lb.textContent = 'Token Balances';
+        panelContent.appendChild(lb);
+        var balances = data.balances || {};
+        ['CELO','USDC','cUSD','USDT','cEUR','WETH'].forEach(function(sym) {
+          var amt = balances[sym];
+          if (amt === undefined) return;
+          var row = document.createElement('div');
+          row.style.cssText = rs + cardBg + 'display:flex;align-items:center;justify-content:space-between';
+          var ts2 = document.createElement('span');
+          ts2.style.cssText = 'font-size:13px;font-weight:700;color:#3A2510';
+          ts2.textContent = sym;
+          var as2 = document.createElement('span');
+          as2.style.cssText = 'font-size:13px;font-weight:800;color:' + (amt > 0 ? '#D4A030' : '#c8b090');
+          as2.textContent = amt > 0 ? parseFloat(amt).toFixed(4) : '0';
+          row.appendChild(ts2); row.appendChild(as2);
+          panelContent.appendChild(row);
+        });
+        if (data.updatedAt) {
+          var t2 = document.createElement('div');
+          t2.style.cssText = 'text-align:center;padding:6px;color:#a08860;font-size:10px;margin-top:6px';
+          t2.textContent = 'Updated ' + new Date(data.updatedAt).toLocaleTimeString();
+          panelContent.appendChild(t2);
+        }
+      }
+
+      else if (name === 'actions') {
+        var actions = (data.actions || []);
+        if (actions.length === 0) {
+          var em = document.createElement('div');
+          em.style.cssText = 'text-align:center;padding:30px;color:#a08860;font-size:13px';
+          em.textContent = 'No actions yet. Chat with ONE to get started!';
+          panelContent.appendChild(em);
+          return;
+        }
+        actions.forEach(function(a) {
+          var row = document.createElement('div');
+          row.style.cssText = rs + cardBg + 'display:flex;align-items:center;gap:10px';
+          var ic = document.createElement('div');
+          ic.style.cssText = 'width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;background:rgba(53,208,127,0.12);border:1px solid rgba(53,208,127,0.2)';
+          ic.textContent = a.type === 'swap' ? '\u{1F504}' : a.type === 'arb_scan' ? '\u{1F4C8}' : '\u{26A1}';
+          var inf = document.createElement('div');
+          inf.style.cssText = 'flex:1';
+          var ti = document.createElement('div');
+          ti.style.cssText = 'font-size:12px;font-weight:700;color:#3A2510;font-family:Fredoka,sans-serif';
+          ti.textContent = a.type;
+          var su = document.createElement('div');
+          su.style.cssText = 'font-size:11px;color:#8a7050;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px';
+          su.textContent = a.message;
+          var tm = document.createElement('div');
+          tm.style.cssText = 'font-size:10px;color:#a08860';
+          tm.textContent = new Date(a.time).toLocaleTimeString();
+          inf.appendChild(ti); inf.appendChild(su);
+          row.appendChild(ic); row.appendChild(inf); row.appendChild(tm);
+          panelContent.appendChild(row);
+        });
+      }
+
+      else if (name === 'arbitrage') {
+        var ad = data.data || {};
+        var sc = ad.scans || [];
+        if (sc.length === 0) {
+          var em2 = document.createElement('div');
+          em2.style.cssText = 'text-align:center;padding:20px;color:' + (data.status === 'error' ? '#E85D4A' : '#a08860') + ';font-size:12px';
+          em2.textContent = data.status === 'error' ? data.message : 'No scan data';
+          panelContent.appendChild(em2);
+          return;
+        }
+        sc.forEach(function(s) {
+          var cd2 = document.createElement('div');
+          cd2.style.cssText = rs + cardBg + 'border-left:4px solid ' + (s.profitable ? '#35D07F' : '#D4A030');
+          var tp = document.createElement('div');
+          tp.style.cssText = 'display:flex;justify-content:space-between';
+          var pr = document.createElement('span');
+          pr.style.cssText = 'font-size:13px;font-weight:700;color:#3A2510;font-family:Fredoka,sans-serif';
+          pr.textContent = s.pair;
+          var sp = document.createElement('span');
+          sp.style.cssText = 'font-size:12px;font-weight:800;color:' + (s.profitable ? '#35D07F' : '#a08860');
+          sp.textContent = (typeof s.spread === 'number' ? s.spread.toFixed(4) : s.spread || '0') + '%';
+          tp.appendChild(pr); tp.appendChild(sp);
+          var dt = document.createElement('div');
+          dt.style.cssText = 'font-size:11px;color:#8a7050;margin-top:4px';
+          var uv = s.uniPrice != null ? s.uniPrice.toFixed(4) : 'N/A';
+          var mv = s.mentoPrice != null ? s.mentoPrice.toFixed(4) : 'N/A';
+          dt.textContent = 'Uni: ' + uv + ' | Mento: ' + mv;
+          cd2.appendChild(tp); cd2.appendChild(dt);
+          if (s.direction) {
+            var dr = document.createElement('div');
+            dr.style.cssText = 'font-size:10px;color:#a08860;margin-top:2px';
+            dr.textContent = s.direction;
+            cd2.appendChild(dr);
+          }
+          panelContent.appendChild(cd2);
+        });
+        if (ad.timestamp) {
+          var ts3 = document.createElement('div');
+          ts3.style.cssText = 'text-align:center;padding:6px;color:#a08860;font-size:10px';
+          ts3.textContent = 'Scanned ' + new Date(ad.timestamp).toLocaleTimeString();
+          panelContent.appendChild(ts3);
+        }
+      }
+
+      else if (name === 'cron') {
+        var ald = data.data || {};
+        var ac = ald.active || [];
+        var tr = ald.triggered || [];
+        if (ac.length === 0 && tr.length === 0) {
+          var em3 = document.createElement('div');
+          em3.style.cssText = 'text-align:center;padding:20px;color:#a08860;font-size:13px';
+          em3.textContent = 'No alerts. Try "set alert CELO above $0.10"';
+          panelContent.appendChild(em3);
+          return;
+        }
+        ac.forEach(function(a) {
+          var row = document.createElement('div');
+          row.style.cssText = rs + cardBg + 'display:flex;align-items:center;justify-content:space-between';
+          var inf = document.createElement('div');
+          var nm = document.createElement('div');
+          nm.style.cssText = 'font-size:12px;font-weight:700;color:#3A2510;font-family:Fredoka,sans-serif';
+          nm.textContent = a.rule;
+          var sb = document.createElement('div');
+          sb.style.cssText = 'font-size:11px;color:#8a7050';
+          sb.textContent = a.action;
+          inf.appendChild(nm); inf.appendChild(sb);
+          var dt2 = document.createElement('div');
+          dt2.style.cssText = 'width:10px;height:10px;border-radius:50%;background:#35D07F;box-shadow:0 0 4px #35D07F';
+          row.appendChild(inf); row.appendChild(dt2);
+          panelContent.appendChild(row);
+        });
+        if (tr.length > 0) {
+          var lb2 = document.createElement('div');
+          lb2.style.cssText = 'font-size:10px;font-weight:700;color:#a08860;text-transform:uppercase;letter-spacing:1.5px;margin:12px 0 6px;font-family:Fredoka,sans-serif';
+          lb2.textContent = 'Triggered (' + tr.length + ')';
+          panelContent.appendChild(lb2);
+          tr.forEach(function(a) {
+            var row = document.createElement('div');
+            row.style.cssText = rs + 'background:rgba(255,255,255,0.25);border:1px solid #d8c8a0;opacity:0.6;padding:8px 14px';
+            var nm = document.createElement('div');
+            nm.style.cssText = 'font-size:12px;font-weight:600;color:#6a5a40';
+            nm.textContent = a.rule;
+            row.appendChild(nm);
+            panelContent.appendChild(row);
+          });
+        }
+      }
+    }
+
+    fetch(API + '/api/balance').then(function(r) { return r.json(); }).then(function(data) {
+      if (data.wallet) {
+        document.getElementById('wallet-addr').textContent = data.wallet.slice(0,6) + '...' + data.wallet.slice(-4);
+      }
+    }).catch(function() {});
+
+    document.querySelectorAll('.bar-tab').forEach(function(tab) { tab.addEventListener('click', function() { openCard(tab.dataset.panel); }); });
+    document.getElementById('panel-close').addEventListener('click', closePanel);
+    document.getElementById('panel-overlay').addEventListener('click', closePanel);
+    document.getElementById('wallet-btn').addEventListener('click', function() { openCard('wallet'); });
+
+    // ══════════════════════════════════════════════════
+    // CENTERED CARD POPUP SYSTEM
+    // ══════════════════════════════════════════════════
+    var cardOverlay = document.getElementById('card-overlay');
+    var cardBody = document.getElementById('card-body');
+    var cardTitle = document.getElementById('card-title');
+    var cardIcon = document.getElementById('card-icon');
+    var activeCard = null;
+
+    var cardConfig = {
+      wallet:    { title: 'Wallet',              icon: '\u{1F4B0}', endpoint: '/api/balance' },
+      actions:   { title: 'Recent Actions',      icon: '\u26A1',    endpoint: '/api/actions' },
+      arbitrage: { title: 'Arbitrage Scanner',   icon: '\u{1F4C8}', endpoint: '/api/arb-scan' },
+      cron:      { title: 'Alerts & Automations', icon: '\u{1F514}', endpoint: '/api/alerts' },
+      about:     { title: 'About ONE',           icon: '\u2B50',    endpoint: null },
+      piggy:     { title: 'Savings Goals',       icon: '\u{1F416}', endpoint: '/api/savings-goals' },
+      vault:     { title: 'AAVE Lending',        icon: '\u{1F3E6}', endpoint: '/api/lend-positions' },
+    };
+
+    function closeCard() {
+      cardOverlay.classList.remove('open');
+      activeCard = null;
+      document.querySelectorAll('.bar-tab').forEach(function(t) { t.classList.remove('active'); });
+    }
+
+    function openCard(name) {
+      if (activeCard === name) { closeCard(); return; }
+      activeCard = name;
+      var cfg = cardConfig[name] || { title: name, icon: '', endpoint: null };
+      cardTitle.textContent = cfg.title;
+      cardIcon.textContent = cfg.icon;
+      cardBody.textContent = '';
+      document.querySelectorAll('.bar-tab').forEach(function(t) { t.classList.toggle('active', t.dataset && t.dataset.panel === name); });
+
+      if (name === 'about') {
+        var tmpl = document.getElementById('tmpl-about');
+        if (tmpl) cardBody.appendChild(tmpl.content.cloneNode(true));
+      } else if (cfg.endpoint) {
+        var ld = document.createElement('div');
+        ld.className = 'card-empty';
+        ld.textContent = 'Loading...';
+        cardBody.appendChild(ld);
+        fetch(API + cfg.endpoint)
+          .then(function(r) { return r.json(); })
+          .then(function(data) { if (activeCard === name) renderCard(name, data); })
+          .catch(function() {
+            if (activeCard === name) {
+              cardBody.textContent = '';
+              var e = document.createElement('div');
+              e.className = 'card-empty';
+              e.style.color = '#E85D4A';
+              e.textContent = 'Failed to load data';
+              cardBody.appendChild(e);
+            }
+          });
+      }
+      cardOverlay.classList.add('open');
+    }
+
+    function renderCard(name, data) {
+      cardBody.textContent = '';
+
+      if (name === 'wallet') {
+        if (data.wallet) {
+          var wr = document.createElement('div');
+          wr.className = 'card-row';
+          wr.style.background = 'rgba(53,208,127,0.08)';
+          wr.style.borderColor = 'rgba(53,208,127,0.2)';
+          var wl = document.createElement('span');
+          wl.className = 'card-label';
+          wl.style.color = '#35D07F';
+          wl.textContent = 'Wallet';
+          var wv = document.createElement('span');
+          wv.style.cssText = 'font-size:12px;font-weight:700;color:#35D07F;font-family:monospace';
+          wv.textContent = data.wallet.slice(0,6) + '...' + data.wallet.slice(-4);
+          wr.appendChild(wl); wr.appendChild(wv);
+          cardBody.appendChild(wr);
+        }
+        var st = document.createElement('div');
+        st.className = 'card-section-title';
+        st.textContent = 'Token Balances';
+        cardBody.appendChild(st);
+        var bals = data.balances || {};
+        ['CELO','USDC','cUSD','USDT','cEUR','WETH'].forEach(function(sym) {
+          var amt = bals[sym];
+          if (amt === undefined) return;
+          var r = document.createElement('div');
+          r.className = 'card-row';
+          var l = document.createElement('span');
+          l.className = 'card-label';
+          l.textContent = sym;
+          var v = document.createElement('span');
+          v.className = 'card-value';
+          v.style.color = amt > 0 ? '#D4A030' : '#c8b090';
+          v.textContent = amt > 0 ? parseFloat(amt).toFixed(4) : '0';
+          r.appendChild(l); r.appendChild(v);
+          cardBody.appendChild(r);
+        });
+        if (data.updatedAt) {
+          var ts = document.createElement('div');
+          ts.style.cssText = 'text-align:center;padding:8px;color:#a08860;font-size:10px';
+          ts.textContent = 'Updated ' + new Date(data.updatedAt).toLocaleTimeString();
+          cardBody.appendChild(ts);
+        }
+      }
+
+      else if (name === 'actions') {
+        var acts = data.actions || [];
+        if (!acts.length) {
+          var em = document.createElement('div');
+          em.className = 'card-empty';
+          em.textContent = 'No actions yet. Chat with ONE!';
+          cardBody.appendChild(em);
+          return;
+        }
+        acts.forEach(function(a) {
+          var r = document.createElement('div');
+          r.className = 'card-row';
+          r.style.gap = '10px';
+          var ic = document.createElement('div');
+          ic.style.cssText = 'width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:14px;background:rgba(53,208,127,0.12);border:1px solid rgba(53,208,127,0.2);flex-shrink:0';
+          ic.textContent = a.type === 'swap' ? '\u{1F504}' : a.type === 'savings' ? '\u{1F416}' : '\u26A1';
+          var inf = document.createElement('div');
+          inf.style.cssText = 'flex:1;min-width:0';
+          var ti = document.createElement('div');
+          ti.className = 'card-label';
+          ti.textContent = a.type;
+          var su = document.createElement('div');
+          su.style.cssText = 'font-size:11px;color:#8a7050;overflow:hidden;text-overflow:ellipsis;white-space:nowrap';
+          su.textContent = a.message;
+          var tm = document.createElement('div');
+          tm.style.cssText = 'font-size:10px;color:#a08860;flex-shrink:0';
+          tm.textContent = new Date(a.time).toLocaleTimeString();
+          inf.appendChild(ti); inf.appendChild(su);
+          r.appendChild(ic); r.appendChild(inf); r.appendChild(tm);
+          cardBody.appendChild(r);
+        });
+      }
+
+      else if (name === 'arbitrage') {
+        var ad = data.data || {};
+        var sc = ad.scans || [];
+        if (!sc.length) {
+          var em2 = document.createElement('div');
+          em2.className = 'card-empty';
+          em2.style.color = data.status === 'error' ? '#E85D4A' : '#a08860';
+          em2.textContent = data.status === 'error' ? data.message : 'No arb data yet';
+          cardBody.appendChild(em2);
+          return;
+        }
+        sc.forEach(function(s) {
+          var r = document.createElement('div');
+          r.className = 'card-row';
+          r.style.borderLeft = '4px solid ' + (s.profitable ? '#35D07F' : '#D4A030');
+          r.style.flexDirection = 'column';
+          r.style.alignItems = 'stretch';
+          var tp = document.createElement('div');
+          tp.style.cssText = 'display:flex;justify-content:space-between';
+          var pr = document.createElement('span');
+          pr.className = 'card-label';
+          pr.textContent = s.pair;
+          var sp = document.createElement('span');
+          sp.className = 'card-value';
+          sp.style.color = s.profitable ? '#35D07F' : '#a08860';
+          sp.textContent = (typeof s.spread === 'number' ? s.spread.toFixed(4) : s.spread || '0') + '%';
+          tp.appendChild(pr); tp.appendChild(sp);
+          var dt = document.createElement('div');
+          dt.style.cssText = 'font-size:11px;color:#8a7050;margin-top:4px';
+          dt.textContent = 'Uni: ' + (s.uniPrice != null ? s.uniPrice.toFixed(4) : 'N/A') + ' | Mento: ' + (s.mentoPrice != null ? s.mentoPrice.toFixed(4) : 'N/A');
+          r.appendChild(tp); r.appendChild(dt);
+          if (s.direction) {
+            var dr = document.createElement('div');
+            dr.style.cssText = 'font-size:10px;color:#a08860;margin-top:2px';
+            dr.textContent = s.direction;
+            r.appendChild(dr);
+          }
+          cardBody.appendChild(r);
+        });
+      }
+
+      else if (name === 'cron') {
+        var ald = data.data || {};
+        var aac = ald.active || [];
+        var atr = ald.triggered || [];
+        if (!aac.length && !atr.length) {
+          var em3 = document.createElement('div');
+          em3.className = 'card-empty';
+          em3.textContent = 'No alerts. Try "set alert CELO above $0.10"';
+          cardBody.appendChild(em3);
+          return;
+        }
+        aac.forEach(function(a) {
+          var r = document.createElement('div');
+          r.className = 'card-row';
+          var inf = document.createElement('div');
+          var nm = document.createElement('div');
+          nm.className = 'card-label';
+          nm.textContent = a.rule;
+          var sb = document.createElement('div');
+          sb.style.cssText = 'font-size:11px;color:#8a7050';
+          sb.textContent = a.action;
+          inf.appendChild(nm); inf.appendChild(sb);
+          var dot = document.createElement('div');
+          dot.style.cssText = 'width:10px;height:10px;border-radius:50%;background:#35D07F;box-shadow:0 0 4px #35D07F';
+          r.appendChild(inf); r.appendChild(dot);
+          cardBody.appendChild(r);
+        });
+        if (atr.length) {
+          var st2 = document.createElement('div');
+          st2.className = 'card-section-title';
+          st2.textContent = 'Triggered (' + atr.length + ')';
+          cardBody.appendChild(st2);
+          atr.forEach(function(a) {
+            var r = document.createElement('div');
+            r.className = 'card-row';
+            r.style.opacity = '0.6';
+            var nm = document.createElement('div');
+            nm.className = 'card-label';
+            nm.style.color = '#6a5a40';
+            nm.textContent = a.rule;
+            r.appendChild(nm);
+            cardBody.appendChild(r);
+          });
+        }
+      }
+
+      else if (name === 'piggy') {
+        var goals = (data.data && data.data.goals) || [];
+        if (!goals.length) {
+          var emp = document.createElement('div');
+          emp.className = 'card-empty';
+          emp.textContent = 'No savings goals yet. Try "save $500 for a laptop"';
+          cardBody.appendChild(emp);
+          return;
+        }
+        goals.forEach(function(g) {
+          var r = document.createElement('div');
+          r.className = 'card-row';
+          r.style.flexDirection = 'column';
+          r.style.alignItems = 'stretch';
+          r.style.borderLeft = '4px solid ' + (g.strategy === 'aave' ? '#35D07F' : '#D4A030');
+          // Top: name + percent
+          var tp = document.createElement('div');
+          tp.style.cssText = 'display:flex;justify-content:space-between;align-items:center';
+          var nm = document.createElement('span');
+          nm.className = 'card-label';
+          nm.style.fontSize = '14px';
+          nm.textContent = g.name;
+          var pct = document.createElement('span');
+          pct.className = 'card-value';
+          pct.style.color = '#35D07F';
+          pct.textContent = g.percent;
+          tp.appendChild(nm); tp.appendChild(pct);
+          r.appendChild(tp);
+          // Progress
+          var pr = document.createElement('div');
+          pr.style.cssText = 'font-size:12px;color:#8a7050;margin-top:4px;font-weight:600';
+          pr.textContent = g.progress;
+          r.appendChild(pr);
+          // Progress bar
+          var barBg = document.createElement('div');
+          barBg.style.cssText = 'height:6px;background:rgba(0,0,0,0.08);border-radius:3px;margin-top:6px;overflow:hidden';
+          var barFill = document.createElement('div');
+          var pctNum = parseFloat(g.percent) || 0;
+          barFill.style.cssText = 'height:100%;border-radius:3px;background:linear-gradient(90deg,#35D07F,#FCFF52);width:' + Math.min(100, pctNum) + '%';
+          barBg.appendChild(barFill);
+          r.appendChild(barBg);
+          // Details row
+          var det = document.createElement('div');
+          det.style.cssText = 'display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:#a08860';
+          var dl = document.createElement('span');
+          dl.textContent = g.deadline !== 'none' ? 'Due: ' + g.deadline : 'No deadline';
+          var strat = document.createElement('span');
+          strat.style.cssText = 'background:rgba(53,208,127,0.12);padding:1px 6px;border-radius:4px;font-weight:700;color:#2a6848';
+          strat.textContent = g.strategy.toUpperCase();
+          det.appendChild(dl); det.appendChild(strat);
+          r.appendChild(det);
+          // ID
+          var idEl = document.createElement('div');
+          idEl.style.cssText = 'font-size:9px;color:#c8b090;margin-top:4px;font-family:monospace';
+          idEl.textContent = 'ID: ' + g.id;
+          r.appendChild(idEl);
+          cardBody.appendChild(r);
+        });
+      }
+
+      else if (name === 'vault') {
+        if (data.status === 'error') {
+          var em4 = document.createElement('div');
+          em4.className = 'card-empty';
+          em4.style.color = '#E85D4A';
+          em4.textContent = data.message;
+          cardBody.appendChild(em4);
+          return;
+        }
+        var positions = data.data;
+        if (positions && typeof positions === 'object') {
+          var st4 = document.createElement('div');
+          st4.className = 'card-section-title';
+          st4.textContent = 'AAVE V3 Positions';
+          cardBody.appendChild(st4);
+          var posArr = Array.isArray(positions) ? positions : (positions.positions || [positions]);
+          if (!posArr.length) {
+            var em5 = document.createElement('div');
+            em5.className = 'card-empty';
+            em5.textContent = 'No lending positions yet';
+            cardBody.appendChild(em5);
+          }
+          posArr.forEach(function(p) {
+            var r = document.createElement('div');
+            r.className = 'card-row';
+            r.style.flexDirection = 'column';
+            r.style.alignItems = 'stretch';
+            var tp = document.createElement('div');
+            tp.style.cssText = 'display:flex;justify-content:space-between';
+            var tl = document.createElement('span');
+            tl.className = 'card-label';
+            tl.textContent = p.token || p.symbol || 'Token';
+            var tv = document.createElement('span');
+            tv.className = 'card-value';
+            tv.textContent = p.balance || p.supplied || p.amount || '0';
+            tp.appendChild(tl); tp.appendChild(tv);
+            r.appendChild(tp);
+            if (p.apy || p.supplyAPY) {
+              var apy = document.createElement('div');
+              apy.style.cssText = 'font-size:11px;color:#35D07F;margin-top:3px;font-weight:700';
+              apy.textContent = 'APY: ' + (p.apy || p.supplyAPY) + '%';
+              r.appendChild(apy);
+            }
+            cardBody.appendChild(r);
+          });
+        }
+      }
+    }
+
+    document.getElementById('card-close').addEventListener('click', closeCard);
+    document.getElementById('card-overlay').addEventListener('click', function(e) {
+      if (e.target === cardOverlay) closeCard();
+    });
+
+    // Expose openCard globally so main.ts 3D click handlers can call it
+    window.openCard = openCard;
+    window.closeCard = closeCard;
+  </script>
+</body>
+</html>

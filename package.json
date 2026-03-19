@@ -1,0 +1,20 @@
+{
+  "name": "one-defi-agent",
+  "version": "1.0.0",
+  "description": "ONE — Personal DeFi Agent on Celo. OpenClaw skills for swaps, lending, LP, arbitrage, savings, and price alerts.",
+  "type": "module",
+  "scripts": {
+    "balance": "tsx scripts/balance.ts",
+    "register": "tsx scripts/register-8004.ts",
+    "install-skills": "bash install.sh"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "license": "MIT"
+}
